@@ -16,6 +16,8 @@ pub fn builtin_parse_yaml(str: IStr) -> Result<Val> {
 			legacy_octal_numbers: true,
 			// Disable budget limits - we trust the YAML input
 			budget: None,
+			// Many Helm Charts contain duplicate keys - take last key rather than erroring
+			duplicate_keys: serde_saphyr::DuplicateKeyPolicy::LastWins,
 			..Default::default()
 		},
 	)
