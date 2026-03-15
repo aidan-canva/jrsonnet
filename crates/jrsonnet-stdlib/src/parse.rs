@@ -7,8 +7,20 @@ pub fn builtin_parse_json(str: IStr) -> Result<Val> {
 	Ok(value)
 }
 
+/// Detect whether the input is a YAML stream (contains `---` document markers).
+fn is_yaml_stream(s: &str) -> bool {
+	for line in s.lines() {
+		let trimmed = line.trim_end();
+		if trimmed == "---" || trimmed.starts_with("--- ") {
+			return true;
+		}
+	}
+	false
+}
+
 #[builtin]
 pub fn builtin_parse_yaml(str: IStr) -> Result<Val> {
+	let is_stream = is_yaml_stream(&str);
 	let out = serde_saphyr::from_multiple_with_options::<Val>(
 		&str,
 		serde_saphyr::Options {
@@ -22,7 +34,13 @@ pub fn builtin_parse_yaml(str: IStr) -> Result<Val> {
 		},
 	)
 	.map_err(|e| runtime_error!("failed to parse yaml: {e}"))?;
-	Ok(if out.is_empty() {
+
+	// go-jsonnet compatibility:
+	// - If input is a YAML stream (has --- markers), always return an array
+	// - If input is a single document (no --- markers), return the value directly
+	Ok(if is_stream {
+		Val::Arr(out.into())
+	} else if out.is_empty() {
 		Val::Null
 	} else if out.len() == 1 {
 		out.into_iter().next().unwrap()
